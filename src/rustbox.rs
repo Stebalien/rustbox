@@ -168,8 +168,7 @@ mod running {
     }
 
     // Internal RAII guard used to ensure we release the running lock whenever we acquire it.
-    #[allow(missing_copy_implementations)]
-    pub struct RunningGuard(());
+    pub struct RunningGuard;
 
     pub fn run() -> Option<RunningGuard> {
         // Ensure that we are not already running and simultaneously set RUSTBOX_RUNNING using an
@@ -179,7 +178,7 @@ mod running {
             None
         } else {
             // The RustBox was not already running, and now we have the lock.
-            Some(RunningGuard(()))
+            Some(RunningGuard)
         }
     }
 

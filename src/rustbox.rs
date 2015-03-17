@@ -127,16 +127,12 @@ fn unpack_event(ev_type: c_int, ev: &RawEvent, raw: bool) -> EventResult<Event> 
 
 #[derive(Clone, Copy,FromPrimitive,Debug)]
 #[repr(C,isize)]
-pub enum InitErrorKind {
+pub enum InitError {
+    // Use positive numbers for our error codes.
+    AlreadyOpen = 1,
     UnsupportedTerminal = -1,
     FailedToOpenTty = -2,
     PipeTrapError = -3,
-}
-
-#[derive(Debug)]
-pub enum InitError {
-    AlreadyOpen,
-    TermBox(Option<InitErrorKind>),
 }
 
 impl fmt::Display for InitError {
@@ -147,13 +143,12 @@ impl fmt::Display for InitError {
 
 impl Error for InitError {
     fn description(&self) -> &str {
+        use InitError::*;
         match *self {
-            InitError::AlreadyOpen => "RustBox is already open.",
-            InitError::TermBox(e) => e.map_or("Unexpected TermBox return code.", |e| match e {
-                InitErrorKind::UnsupportedTerminal => "Unsupported terminal.",
-                InitErrorKind::FailedToOpenTty => "Failed to open TTY.",
-                InitErrorKind::PipeTrapError => "Pipe trap error.",
-            }),
+            AlreadyOpen => "RustBox is already open.",
+            UnsupportedTerminal => "Unsupported terminal.",
+            FailedToOpenTty => "Failed to open TTY.",
+            PipeTrapError => "Pipe trap error.",
         }
     }
 }
@@ -254,7 +249,7 @@ impl RustBox {
                 _running: running,
             },
             res => {
-                return Err(InitError::TermBox(FromPrimitive::from_isize(res as isize)))
+                return Err(FromPrimitive::from_isize(res as isize).unwrap())
             }
         }};
         match opts.input_mode {

@@ -1,7 +1,6 @@
 #![feature(libc)]
 #![feature(std_misc)]
 #![feature(core)]
-#![feature(optin_builtin_traits)]
 
 extern crate libc;
 extern crate termbox_sys as termbox;
@@ -207,9 +206,6 @@ pub struct RustBox {
     _running: running::RunningGuard,
 }
 
-// Termbox is not thread safe
-impl !Send for RustBox {}
-
 #[derive(Clone, Copy,Debug)]
 pub struct InitOptions {
     /// Use this option to initialize with a specific input mode
@@ -253,7 +249,7 @@ impl RustBox {
         };
 
         // Create the RustBox.
-        let rb = unsafe { match termbox::tb_init() {
+        let mut rb = unsafe { match termbox::tb_init() {
             0 => RustBox {
                 _running: running,
             },
@@ -276,23 +272,23 @@ impl RustBox {
         unsafe { termbox::tb_height() as usize }
     }
 
-    pub fn clear(&self) {
+    pub fn clear(&mut self) {
         unsafe { termbox::tb_clear() }
     }
 
-    pub fn present(&self) {
+    pub fn present(&mut self) {
         unsafe { termbox::tb_present() }
     }
 
-    pub fn set_cursor(&self, x: isize, y: isize) {
+    pub fn set_cursor(&mut self, x: isize, y: isize) {
         unsafe { termbox::tb_set_cursor(x as c_int, y as c_int) }
     }
 
-    pub unsafe fn change_cell(&self, x: usize, y: usize, ch: u32, fg: u16, bg: u16) {
+    pub unsafe fn change_cell(&mut self, x: usize, y: usize, ch: u32, fg: u16, bg: u16) {
         termbox::tb_change_cell(x as c_int, y as c_int, ch, fg, bg)
     }
 
-    pub fn print(&self, x: usize, y: usize, sty: Style, fg: Color, bg: Color, s: &str) {
+    pub fn print(&mut self, x: usize, y: usize, sty: Style, fg: Color, bg: Color, s: &str) {
         let fg = Style::from_color(fg) | (sty & style::TB_ATTRIB);
         let bg = Style::from_color(bg);
         for (i, ch) in s.chars().enumerate() {
@@ -302,7 +298,7 @@ impl RustBox {
         }
     }
 
-    pub fn print_char(&self, x: usize, y: usize, sty: Style, fg: Color, bg: Color, ch: char) {
+    pub fn print_char(&mut self, x: usize, y: usize, sty: Style, fg: Color, bg: Color, ch: char) {
         let fg = Style::from_color(fg) | (sty & style::TB_ATTRIB);
         let bg = Style::from_color(bg);
         unsafe {
@@ -310,7 +306,7 @@ impl RustBox {
         }
     }
 
-    pub fn poll_event(&self, raw: bool) -> EventResult<Event> {
+    pub fn poll_event(&mut self, raw: bool) -> EventResult<Event> {
         let ev = NIL_RAW_EVENT;
         let rc = unsafe {
             termbox::tb_poll_event(&ev as *const RawEvent)
@@ -318,7 +314,7 @@ impl RustBox {
         unpack_event(rc, &ev, raw)
     }
 
-    pub fn peek_event(&self, timeout: Duration, raw: bool) -> EventResult<Event> {
+    pub fn peek_event(&mut self, timeout: Duration, raw: bool) -> EventResult<Event> {
         let ev = NIL_RAW_EVENT;
         let rc = unsafe {
             termbox::tb_peek_event(&ev as *const RawEvent, timeout.num_milliseconds() as c_int)
@@ -326,7 +322,7 @@ impl RustBox {
         unpack_event(rc, &ev, raw)
     }
 
-    pub fn set_input_mode(&self, mode: InputMode) {
+    pub fn set_input_mode(&mut self, mode: InputMode) {
         unsafe {
             termbox::tb_select_input_mode(mode as c_int);
         }

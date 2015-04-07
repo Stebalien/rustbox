@@ -10,6 +10,7 @@ pub use self::running::running;
 pub use self::style::{Style, RB_BOLD, RB_UNDERLINE, RB_REVERSE, RB_NORMAL};
 
 use std::error::Error;
+use std::io;
 use std::fmt;
 use std::char;
 use std::time::duration::Duration;
@@ -79,23 +80,6 @@ mod style {
 
 const NIL_RAW_EVENT: RawEvent = RawEvent { etype: 0, emod: 0, key: 0, ch: 0, w: 0, h: 0, x: 0, y: 0 };
 
-// FIXME: Rust doesn't support this enum representation.
-// #[derive(Copy,FromPrimitive,Debug)]
-// #[repr(C,int)]
-// pub enum EventErrorKind {
-//     Error = -1,
-// }
-// pub type EventError = Option<EventErrorKind>;
-#[allow(non_snake_case)]
-pub mod EventErrorKind {
-    #[derive(Clone, Copy,Debug)]
-    pub struct Error;
-}
-
-pub type EventError = Option<EventErrorKind::Error>;
-
-pub type EventResult<T> = Result<T, EventError>;
-
 /// Unpack a RawEvent to an Event
 ///
 /// if the `raw` parameter is true, then the Event variant will be the raw
@@ -104,7 +88,7 @@ pub type EventResult<T> = Result<T, EventError>;
 ///
 /// This is useful if you want to interpret the raw event data yourself, rather
 /// than having rustbox translate it to its own representation.
-fn unpack_event(ev_type: c_int, ev: &RawEvent, raw: bool) -> EventResult<Event> {
+fn unpack_event(ev_type: c_int, ev: &RawEvent, raw: bool) -> io::Result<Event> {
     match ev_type {
         0 => Ok(Event::NoEvent),
         1 => Ok(
@@ -118,10 +102,8 @@ fn unpack_event(ev_type: c_int, ev: &RawEvent, raw: bool) -> EventResult<Event> 
                 Event::KeyEvent(k)
             }),
         2 => Ok(Event::ResizeEvent(ev.w, ev.h)),
-        // FIXME: Rust doesn't support this error representation
-        // res => FromPrimitive::from_int(res as isize),
-        -1 => Err(Some(EventErrorKind::Error)),
-        _ => Err(None)
+        -1 => Err(io::Error::last_os_error()),
+        _ => panic!("Unsupported event"),
     }
 }
 
@@ -300,7 +282,7 @@ impl RustBox {
         }
     }
 
-    pub fn poll_event(&mut self, raw: bool) -> EventResult<Event> {
+    pub fn poll_event(&mut self, raw: bool) -> io::Result<Event> {
         let ev = NIL_RAW_EVENT;
         let rc = unsafe {
             termbox::tb_poll_event(&ev as *const RawEvent)
@@ -308,7 +290,7 @@ impl RustBox {
         unpack_event(rc, &ev, raw)
     }
 
-    pub fn peek_event(&mut self, timeout: Duration, raw: bool) -> EventResult<Event> {
+    pub fn peek_event(&mut self, timeout: Duration, raw: bool) -> io::Result<Event> {
         let ev = NIL_RAW_EVENT;
         let rc = unsafe {
             termbox::tb_peek_event(&ev as *const RawEvent, timeout.num_milliseconds() as c_int)

@@ -38,7 +38,7 @@ use rustbox::{Color, RustBox};
 use rustbox::Key;
 
 fn main() {
-    let mut rustbox = match RustBox::init(Default::default()) {
+    let mut rustbox = match RustBox::init() {
         Result::Ok(v) => v,
         Result::Err(e) => panic!("{}", e),
     };

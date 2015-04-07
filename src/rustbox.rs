@@ -12,7 +12,6 @@ use std::io;
 use std::fmt;
 use std::char;
 use std::time::duration::Duration;
-use std::default::Default;
 
 use termbox::RawEvent;
 use libc::c_int;
@@ -31,8 +30,6 @@ pub enum Event {
 
 #[derive(Clone, Copy, Debug)]
 pub enum InputMode {
-    Current = 0x00,
-
     /// When ESC sequence is in the buffer and it doesn't match any known
     /// ESC sequence => ESC means TB_KEY_ESC
     Esc     = 0x01,
@@ -189,41 +186,14 @@ pub struct RustBox {
     _running: running::RunningGuard,
 }
 
-#[derive(Clone, Copy,Debug)]
-pub struct InitOptions {
-    /// Use this option to initialize with a specific input mode
-    ///
-    /// See InputMode enum for details on the variants.
-    pub input_mode: InputMode,
-}
-
-impl Default for InitOptions {
-    fn default() -> Self {
-        InitOptions {
-            input_mode: InputMode::Current,
-        }
-    }
-}
-
 impl RustBox {
     /// Initialize rustbox.
     ///
-    /// For the default options, you can use:
-    ///
     /// ```
     /// use rustbox::RustBox;
-    /// use std::default::Default;
-    /// let rb = RustBox::init(Default::default());
+    /// let rb = RustBox::init();
     /// ```
-    ///
-    /// Otherwise, you can specify:
-    ///
-    /// ```
-    /// use rustbox::{RustBox, InitOptions};
-    /// use std::default::Default;
-    /// let rb = RustBox::init(InitOptions { input_mode: rustbox::InputMode::Esc, ..Default::default() });
-    /// ```
-    pub fn init(opts: InitOptions) -> Result<RustBox, InitError> {
+    pub fn init() -> Result<RustBox, InitError> {
         // Acquire RAII lock.  This might seem like overkill, but it is easy to forget to release
         // it in the maze of error conditions below.
         let running = match running::run() {
@@ -232,19 +202,10 @@ impl RustBox {
         };
 
         // Create the RustBox.
-        let mut rb = match unsafe { termbox::tb_init() } {
-            0 => RustBox {
-                _running: running,
-            },
-            res => {
-                return Err(InitError::from_termbox_error(res));
-            }
-        };
-        match opts.input_mode {
-            InputMode::Current => (),
-            _ => rb.set_input_mode(opts.input_mode),
+        match unsafe { termbox::tb_init() } {
+            0 => Ok(RustBox { _running: running }),
+            res => Err(InitError::from_termbox_error(res)),
         }
-        Ok(rb)
     }
 
     pub fn width(&self) -> usize {
@@ -308,6 +269,12 @@ impl RustBox {
     pub fn set_input_mode(&mut self, mode: InputMode) {
         unsafe {
             termbox::tb_select_input_mode(mode as c_int);
+        }
+    }
+
+    pub fn get_input_mode(&self) {
+        unsafe {
+            termbox::tb_select_input_mode(0 as c_int);
         }
     }
 }

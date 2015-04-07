@@ -1,6 +1,4 @@
-#![feature(libc)]
 #![feature(std_misc)]
-#![feature(core)]
 
 extern crate libc;
 extern crate termbox_sys as termbox;
@@ -14,7 +12,6 @@ use std::io;
 use std::fmt;
 use std::char;
 use std::time::duration::Duration;
-use std::num::FromPrimitive;
 use std::default::Default;
 
 use termbox::RawEvent;
@@ -107,14 +104,24 @@ fn unpack_event(ev_type: c_int, ev: &RawEvent, raw: bool) -> io::Result<Event> {
     }
 }
 
-#[derive(Clone, Copy,FromPrimitive,Debug)]
-#[repr(C,isize)]
+#[derive(Clone, Copy, Debug)]
 pub enum InitError {
-    // Use positive numbers for our error codes.
-    AlreadyOpen = 1,
-    UnsupportedTerminal = -1,
-    FailedToOpenTty = -2,
-    PipeTrapError = -3,
+    AlreadyOpen,
+    UnsupportedTerminal,
+    FailedToOpenTty,
+    PipeTrapError,
+}
+
+impl InitError {
+    fn from_termbox_error(res: i32) -> Self {
+        use InitError::*;
+        match res {
+            -1 => UnsupportedTerminal,
+            -2 => FailedToOpenTty,
+            -3 => PipeTrapError,
+            _ => panic!("Unhandled termbox init error: {}", res),
+        }
+    }
 }
 
 impl fmt::Display for InitError {
@@ -225,14 +232,14 @@ impl RustBox {
         };
 
         // Create the RustBox.
-        let mut rb = unsafe { match termbox::tb_init() {
+        let mut rb = match unsafe { termbox::tb_init() } {
             0 => RustBox {
                 _running: running,
             },
             res => {
-                return Err(FromPrimitive::from_isize(res as isize).unwrap())
+                return Err(InitError::from_termbox_error(res));
             }
-        }};
+        };
         match opts.input_mode {
             InputMode::Current => (),
             _ => rb.set_input_mode(opts.input_mode),

@@ -1,5 +1,3 @@
-#![feature(core)]
-
 extern crate rustbox;
 
 use std::error::Error;

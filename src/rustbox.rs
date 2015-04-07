@@ -12,6 +12,7 @@ use std::io;
 use std::fmt;
 use std::char;
 use std::time::duration::Duration;
+use std::convert::From;
 
 use termbox::RawEvent;
 use libc::c_int;
@@ -65,8 +66,8 @@ mod style {
         }
     }
 
-    impl Style {
-        pub fn from_color(color: super::Color) -> Style {
+    impl From<super::Color> for Style {
+        fn from(color: super::Color) -> Style {
             Style { bits: color as u16 & TB_NORMAL_COLOR.bits }
         }
     }
@@ -230,8 +231,8 @@ impl RustBox {
     }
 
     pub fn print(&mut self, x: usize, y: usize, sty: Style, fg: Color, bg: Color, s: &str) {
-        let fg = Style::from_color(fg) | (sty & style::TB_ATTRIB);
-        let bg = Style::from_color(bg);
+        let fg = Style::from(fg) | (sty & style::TB_ATTRIB);
+        let bg = Style::from(bg);
         for (i, ch) in s.chars().enumerate() {
             unsafe {
                 self.change_cell(x+i, y, ch as u32, fg.bits(), bg.bits());
@@ -240,8 +241,8 @@ impl RustBox {
     }
 
     pub fn print_char(&mut self, x: usize, y: usize, sty: Style, fg: Color, bg: Color, ch: char) {
-        let fg = Style::from_color(fg) | (sty & style::TB_ATTRIB);
-        let bg = Style::from_color(bg);
+        let fg = Style::from(fg) | (sty & style::TB_ATTRIB);
+        let bg = Style::from(bg);
         unsafe {
             self.change_cell(x, y, ch as u32, fg.bits(), bg.bits());
         }

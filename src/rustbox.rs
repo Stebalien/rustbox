@@ -196,10 +196,7 @@ impl RustBox {
     pub fn init() -> Result<RustBox, InitError> {
         // Acquire RAII lock.  This might seem like overkill, but it is easy to forget to release
         // it in the maze of error conditions below.
-        let running = match running::run() {
-            Some(r) => r,
-            None => return Err(InitError::AlreadyOpen)
-        };
+        let running = try!(running::run().ok_or(InitError::AlreadyOpen));
 
         // Create the RustBox.
         match unsafe { termbox::tb_init() } {

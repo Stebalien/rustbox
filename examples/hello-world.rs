@@ -16,7 +16,7 @@ fn main() {
                   "Press 'q' to quit.");
     loop {
         rustbox.present();
-        match rustbox.poll_event(false) {
+        match rustbox.poll_event() {
             Ok(rustbox::Event::KeyEvent(key)) => {
                 match key {
                     Some(Key::Char('q')) => { break; }

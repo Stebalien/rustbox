@@ -23,10 +23,8 @@ pub use keyboard::Key;
 
 #[derive(Clone, Copy)]
 pub enum Event {
-    KeyEventRaw(u8, u16, u32),
     KeyEvent(Option<Key>),
     ResizeEvent(i32, i32),
-    NoEvent
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -83,24 +81,26 @@ const NIL_RAW_EVENT: RawEvent = RawEvent { etype: 0, emod: 0, key: 0, ch: 0, w: 
 ///
 /// This is useful if you want to interpret the raw event data yourself, rather
 /// than having rustbox translate it to its own representation.
-fn unpack_event(ev_type: c_int, ev: &RawEvent, raw: bool) -> io::Result<Event> {
-    match ev_type {
-        0 => Ok(Event::NoEvent),
-        1 => Ok(
-            if raw {
-                Event::KeyEventRaw(ev.emod, ev.key, ev.ch)
-            } else {
-                let k = match ev.key {
-                    0 => char::from_u32(ev.ch).map(|c| Key::Char(c)),
-                    a => Key::from_code(a),
-                };
-                Event::KeyEvent(k)
-            }),
-        2 => Ok(Event::ResizeEvent(ev.w, ev.h)),
-        -1 => Err(io::Error::last_os_error()),
-        _ => panic!("Unsupported event"),
+fn unpack_event(ev: RawEvent) -> Event {
+    match ev.etype {
+        1 => Event::KeyEvent(match ev.key {
+            0 => char::from_u32(ev.ch).map(|c| Key::Char(c)),
+            a => Key::from_code(a),
+        }),
+        2 => Event::ResizeEvent(ev.w, ev.h),
+        _ => panic!("Unsupported event type"),
     }
 }
+
+fn handle_error(ret: c_int) -> io::Result<bool> {
+    match ret {
+        -1 => Err(io::Error::last_os_error()),
+        0 => Ok(false),
+        1...2 => Ok(true),
+        _ => panic!("Unexpected value returned from termbox: {}", ret),
+    }
+}
+
 
 #[derive(Clone, Copy, Debug)]
 pub enum InitError {
@@ -248,20 +248,27 @@ impl RustBox {
         }
     }
 
-    pub fn poll_event(&mut self, raw: bool) -> io::Result<Event> {
-        let ev = NIL_RAW_EVENT;
-        let rc = unsafe {
-            termbox::tb_poll_event(&ev as *const RawEvent)
-        };
-        unpack_event(rc, &ev, raw)
+    pub fn poll_event_raw(&mut self) -> io::Result<RawEvent> {
+        let mut ev = NIL_RAW_EVENT;
+        assert!(try!(handle_error(unsafe {
+            termbox::tb_poll_event(&mut ev as *mut RawEvent)
+        })) == true); // We must have a result
+        Ok(ev)
     }
 
-    pub fn peek_event(&mut self, timeout: Duration, raw: bool) -> io::Result<Event> {
-        let ev = NIL_RAW_EVENT;
-        let rc = unsafe {
-            termbox::tb_peek_event(&ev as *const RawEvent, timeout.num_milliseconds() as c_int)
-        };
-        unpack_event(rc, &ev, raw)
+    pub fn poll_event(&mut self) -> io::Result<Event> {
+        self.poll_event_raw().map(unpack_event)
+    }
+
+    pub fn peek_event_raw(&mut self, timeout: Duration) -> io::Result<Option<RawEvent>> {
+        let mut ev = NIL_RAW_EVENT;
+        handle_error(unsafe {
+            termbox::tb_peek_event(&mut ev as *mut RawEvent, timeout.num_milliseconds() as c_int)
+        }).map(|v| if v { Some(ev) } else { None })
+    }
+
+    pub fn peek_event(&mut self, timeout: Duration) -> io::Result<Option<Event>> {
+        self.peek_event_raw(timeout).map(|ev| ev.map(unpack_event))
     }
 
     pub fn set_input_mode(&mut self, mode: InputMode) {

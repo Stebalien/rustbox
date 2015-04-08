@@ -17,13 +17,19 @@ use std::convert::From;
 use termbox::RawEvent;
 use libc::c_int;
 
-pub mod keyboard;
+mod keyboard;
 
 pub use keyboard::Key;
+pub use keyboard::key;
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Modifier {
+    Alt,
+}
 
 #[derive(Clone, Copy)]
 pub enum Event {
-    KeyEvent(Option<Key>),
+    KeyEvent(Option<Modifier>, Key),
     ResizeEvent(i32, i32),
 }
 
@@ -83,9 +89,13 @@ const NIL_RAW_EVENT: RawEvent = RawEvent { etype: 0, emod: 0, key: 0, ch: 0, w: 
 /// than having rustbox translate it to its own representation.
 fn unpack_event(ev: RawEvent) -> Event {
     match ev.etype {
-        1 => Event::KeyEvent(match ev.key {
-            0 => char::from_u32(ev.ch).map(|c| Key::Char(c)),
-            a => Key::from_code(a),
+        1 => Event::KeyEvent(match ev.emod {
+            0 => None,
+            1 => Some(Modifier::Alt),
+            _ => panic!("termbox returned an unknown modifier!")
+        }, match ev.key {
+            0 => Key::Char(char::from_u32(ev.ch).unwrap()),
+            a => Key::Key(a),
         }),
         2 => Event::ResizeEvent(ev.w, ev.h),
         _ => panic!("Unsupported event type"),

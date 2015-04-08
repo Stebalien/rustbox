@@ -2,8 +2,7 @@ extern crate rustbox;
 
 use std::error::Error;
 
-use rustbox::{Color, RustBox};
-use rustbox::Key;
+use rustbox::{Color, RustBox, Key};
 
 fn main() {
     let mut rustbox = match RustBox::init() {
@@ -17,9 +16,9 @@ fn main() {
     loop {
         rustbox.present();
         match rustbox.poll_event() {
-            Ok(rustbox::Event::KeyEvent(key)) => {
+            Ok(rustbox::Event::KeyEvent(_, key)) => {
                 match key {
-                    Some(Key::Char('q')) => { break; }
+                    Key::Char('q') => { break; }
                     _ => { }
                 }
             },
